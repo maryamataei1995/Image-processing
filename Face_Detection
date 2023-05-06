@@ -1,0 +1,36 @@
+import cv2
+import sys
+
+cascPath = sys.argv[1]
+faceCascade = face_cascade=cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+video_capture = cv2.VideoCapture(0)
+
+while True:
+    # Capture frame-by-frame
+    ret, frame = video_capture.read()
+  
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    #fine-tuning the object detection algorithm to optimize for speed and accuracy on a given dataset
+    faces = faceCascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1, #This parameter compensates for the fact that faces closer to the camera will appear larger than those further away. So by scaling down the image by a certain factor (in this case 1.1), the algorithm can detect faces at different distances more effectively.
+        minNeighbors=5, #This parameter controls how many neighbors each candidate rectangle must have to be considered a face. Increasing this value will result in fewer false positives but may miss some true positives. Conversely, decreasing this value can result in more false positives but may also detect more true positives.
+        minSize=(30, 30), #This parameter sets the minimum size of the faces to be detected. Faces smaller than this size will not be detected.
+        flags=cv2.CASCADE_SCALE_IMAGE #This parameter sets the detection algorithm to use. In this specific example, cv2.CASCADE_SCALE_IMAGE is used which means the algorithm scales the image rather than using image pyramids.
+     )
+    #build a green rectangle around my face
+    for (x, y, w, h) in faces:
+     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+
+    
+    # Display the resulting frame
+    cv2.imshow('Video', frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# When everything is done, release the capture
+video_capture.release()
+cv2.destroyAllWindows()

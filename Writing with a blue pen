@@ -1,0 +1,60 @@
+import cv2
+import numpy as np
+
+cap = cv2.VideoCapture(0)
+
+# Define the range of blue color in HSV format
+lower_blue = np.array([100, 50, 50])
+upper_blue = np.array([130, 255, 255])
+
+# Initialize the values for drawing
+thickness = 10
+canvas = None
+last_x, last_y = None, None
+
+while True:
+    # Capture frame-by-frame
+    _, frame = cap.read()
+
+    # Convert BGR to HSV
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Threshold the HSV image to get only blue colors
+    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+    # Find contours in the masked image
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  #?
+
+    # Draw on the frame if a blue object is detected
+    if contours:
+        # Get the largest contour
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Find the centroid of the contour
+        moments = cv2.moments(largest_contour)
+        if moments["m00"] != 0:
+            cx = int(moments["m10"] / moments["m00"])
+            cy = int(moments["m01"] / moments["m00"])
+
+            # If the canvas is None, initialize it to be a black image with the same size as the frame.
+            if canvas is None:
+                canvas = np.zeros_like(frame)
+
+            # Draw a line between the current and previous points, if they exist.
+            if last_x is not None and last_y is not None:
+                cv2.line(canvas, (cx, cy), (last_x, last_y), (255, 0, 0), thickness)
+
+            # Update the last x and y positions.
+            last_x, last_y = cx, cy
+
+    # Display the resulting frame
+    output = cv2.add(canvas, frame)
+    cv2.imshow('frame', output)
+
+    # Exit if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the capture
+cap.release()
+cv2.destroyAllWindows()

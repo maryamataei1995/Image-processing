@@ -114,3 +114,12 @@ for i in range(0, len(tris1)):
 
 plt.figure(figsize=(30,20));
 plt.imshow(np.uint8(img1Warped)[:,:,::-1]); plt.axis('off');
+
+# Clone seamlessly.
+output = cv2.seamlessClone(np.uint8(img1Warped), img2, mask, center, cv2.NORMAL_CLONE)
+
+plt.figure(figsize=(20,10))
+plt.subplot((121)); plt.imshow(np.uint8(img1Warped)[:,:,::-1]); plt.axis('off');
+plt.subplot((122)); plt.imshow(output[:,:,::-1]); plt.axis('off');
+
+plt.show()

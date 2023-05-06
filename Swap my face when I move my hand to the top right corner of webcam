@@ -1,0 +1,105 @@
+import numpy as np
+import cv2
+
+# Parameters
+blur = 21
+canny_low = 15
+canny_high = 150
+min_area = 0.0005
+max_area = 0.95
+dilate_iter = 10
+erode_iter = 10
+mask_color = (0, 0, 0)   # black color
+face_scale_factor = 1.1  # increase for higher sensitivity, decrease for lower sensitivity
+face_min_neighbors = 6   # increase for lower false positives, decrease for higher false positives
+
+# Load the face swapping image
+face_swap_image = cv2.imread('input.jpg')
+
+# Check if the face swapping image was successfully loaded
+if face_swap_image is None:
+    print("Error loading face swapping image.")
+elif len(face_swap_image) == 0:
+    print("Error: Face swapping image has zero length.")
+else:
+    print("Face swapping image loaded successfully.")
+
+# initialize video from the webcam
+video = cv2.VideoCapture(0)
+
+# create a boolean variable for keeping track of the previous hand position
+hand_in_top_right = False
+
+while True:
+    ret, frame = video.read()
+    
+    if ret == True:
+        # Convert image to grayscale        
+        image_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Apply Canny Edge Dection
+        edges = cv2.Canny(image_gray, canny_low, canny_high)
+
+        edges = cv2.dilate(edges, None)
+        edges = cv2.erode(edges, None)  
+
+        # get the contours and their areas
+        contours = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)[0]
+        if len(contours) > 0:
+            contour_info = [(c, cv2.contourArea(c),) for c in contours]
+            # Get the area of the image as a comparison
+            image_area = frame.shape[0] * frame.shape[1]  
+          
+            # calculate max and min areas in terms of pixels
+            max_area_pixels = int(max_area * image_area)
+            min_area_pixels = int(min_area * image_area)        
+        
+            # Set up mask with a matrix of 0's
+            mask = np.zeros(edges.shape, dtype=np.uint8)
+            
+            # Go through and find relevant contours and apply to mask
+            for contour in contour_info:
+                # Instead of worrying about all the smaller contours, if the area is smaller than the min, the loop will break
+                if contour[1] > min_area_pixels and contour[1] < max_area_pixels:
+                    # Add contour to mask
+                    mask = cv2.fillConvexPoly(mask, contour[0], (255))
+
+            # Get the dimensions of the frame
+            height, width, channels = frame.shape
+
+            # Check if hand is in the top right corner
+            top_right = mask[0:int(height/8), int(7*width/8):width]
+            if cv2.countNonZero(top_right) > 0:
+                # Detect your face using a pre-trained haarcascade classifier
+                face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+                faces = face_cascade.detectMultiScale(image_gray, scaleFactor=face_scale_factor, minNeighbors=face_min_neighbors)
+
+                # Swap your face with the face swapping image
+                for (x,y,w,h) in faces:
+                    # Scale the face swapping image to match size of detected face
+                    resized_face_swap_image = cv2.resize(face_swap_image,(w,h))
+                    # Apply mask to face swapping image
+                    masked_face_swap_image = cv2.bitwise_and(resized_face_swap_image,resized_face_swap_image,mask = mask[y:y+h,x:x+w])
+                    # Blend the face swapping image with the original frame
+                    alpha = 0.2
+                    beta = (1.0 - alpha)
+                    roi = frame[y:y+h,x:x+w]
+                    blended_frame = cv2.addWeighted(roi, alpha, masked_face_swap_image, beta, 0.0)
+                    frame[y:y+h,x:x+w] = blended_frame
+                    
+                hand_in_top_right = True
+            else:
+                hand_in_top_right = False
+
+        # Display the raw frame
+        cv2.imshow("Frame", frame)
+
+        # Use the q button to quit the operation
+        if cv2.waitKey(60) & 0xff == ord('q'):
+            break
+
+    else:
+        print("Error reading from video capture device.")
+        break
+        
+cv2.destroyAllWindows()
+video.release()
